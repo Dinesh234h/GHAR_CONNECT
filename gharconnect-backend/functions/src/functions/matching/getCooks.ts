@@ -4,54 +4,33 @@
 
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../../middleware/auth.middleware';
-import { getNearbyCooks } from '../../services/matching.service';
-import { detectRegionFromIP, getClientIP } from '../../services/region.service';
 import { buildStaticMapUrl } from '../../services/geocoding.service';
 import { db } from '../../config/firebase';
 import { COLLECTIONS } from '../../config/collections';
 import { handleError, AppError } from '../../utils/error.utils';
-import { parseFloatParam } from '../../utils/validate.utils';
-import { isWithinIndia } from '../../utils/haversine.utils';
 import { CookProfile } from '../../types/cook.types';
-import { UserProfile } from '../../types/user.types';
 
 export const cooksRouter = Router();
 
 // ─── GET /cooks/nearby ───────────────────────────────────────────────────────
-cooksRouter.get('/nearby', requireAuth, async (req: Request, res: Response) => {
+
+cooksRouter.get('/nearby', async (req: Request, res: Response) => {
   try {
-    const lat = parseFloatParam(req.query['lat'] as string);
-    const lng = parseFloatParam(req.query['lng'] as string);
-    const date = req.query['date'] as string | undefined;
-    const slotTime = req.query['slot_time'] as string | undefined;
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
 
-    if (lat === undefined || lng === undefined) {
-      throw new AppError('MISSING_PARAMS', 'lat and lng are required query parameters.', 400);
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng required' });
     }
 
-    if (!isWithinIndia(lat, lng)) {
-      throw new AppError('INVALID_LOCATION', 'Coordinates must be within India.', 400);
-    }
+    return res.json({
+      message: 'Nearby cooks API working 🚀',
+      lat,
+      lng
+    });
 
-    // Fetch user preferences for recommendation scoring
-    const userSnap = await db.collection(COLLECTIONS.USERS).doc(req.uid).get();
-    const user = userSnap.data() as UserProfile | undefined;
-    const preferences = user?.preferences ?? {
-      dietary: [],
-      cuisines: [],
-      spice_level: 'medium' as const,
-      max_price_inr: 150,
-    };
-
-    // Detect region for festival filtering
-    const ip = getClientIP(req);
-    const region = await detectRegionFromIP(ip);
-
-    const cooks = await getNearbyCooks({ userLat: lat, userLng: lng, date, slotTime, preferences, region });
-
-    res.json({ cooks, count: cooks.length });
   } catch (err) {
-    handleError(err, res);
+    return res.status(500).json({ error: 'Internal error' });
   }
 });
 

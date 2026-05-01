@@ -1,6 +1,6 @@
 // functions/orders/respondToOrder.ts
 // POST /orders/:orderId/respond — cook accepts or rejects an order.
-
+import { UserProfile } from '../../types/user.types';
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
@@ -18,7 +18,7 @@ import {
 } from '../../services/notification.service';
 import { getAlternativeCooks } from '../../services/matching.service';
 import { Order } from '../../types/order.types';
-import { UserProfile } from '../../types/user.types';
+
 import { CookProfile } from '../../types/cook.types';
 
 const RespondSchema = z.object({
