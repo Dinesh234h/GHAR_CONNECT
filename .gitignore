@@ -1,0 +1,29 @@
+# Node.js
+node_modules/
+dist/
+lib/
+coverage/
+.nyc_output/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+firebase-debug.log*
+
+# Firebase
+.firebase/
+.firebaserc
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/

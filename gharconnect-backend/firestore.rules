@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && role in request.auth.token.roles;
+    }
+
+    function isCook() {
+      return hasRole('cook');
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    // Server-only fields that clients must NEVER write
+    function noTrustFieldsWritten() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['trust_score', 'rating_avg', 'rating_count', 'badge',
+                 'total_orders', 'completed_orders', 'repeat_user_rate',
+                 'earnings_total', 'pending_commission']);
+    }
+
+    // ─── Users ───────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if isUser(uid);
+      allow create: if isUser(uid);
+      // Users can update their own profile but not protected fields
+      allow update: if isUser(uid) && noTrustFieldsWritten();
+    }
+
+    // ─── Cook Profiles ────────────────────────────────────────────────────────
+    match /cook_profiles/{cookId} {
+      // Authenticated users can read cook profiles for discovery
+      allow read: if isSignedIn();
+      // Cook can create their own profile
+      allow create: if isUser(cookId) && isCook();
+      // Cook can update their own profile but NOT trust fields (server only)
+      allow update: if isUser(cookId) && noTrustFieldsWritten();
+    }
+
+    // ─── Meals ───────────────────────────────────────────────────────────────
+    match /meals/{mealId} {
+      allow read: if isSignedIn();
+      allow create: if isCook() &&
+        request.resource.data.cook_id == request.auth.uid;
+      allow update: if isCook() &&
+        resource.data.cook_id == request.auth.uid;
+      allow delete: if isCook() &&
+        resource.data.cook_id == request.auth.uid;
+    }
+
+    // ─── Time Slots ───────────────────────────────────────────────────────────
+    match /time_slots/{slotId} {
+      allow read: if isSignedIn();
+      allow create: if isCook() &&
+        request.resource.data.cook_id == request.auth.uid;
+      // Only allow cook to update non-capacity fields (capacity is server-only)
+      allow update: if isCook() &&
+        resource.data.cook_id == request.auth.uid &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['confirmed_count', 'pending_count']);
+    }
+
+    // ─── Orders ───────────────────────────────────────────────────────────────
+    match /orders/{orderId} {
+      // Only the user or cook on the order can read it
+      allow read: if isSignedIn() && (
+        resource.data.user_id == request.auth.uid ||
+        resource.data.cook_id == request.auth.uid
+      );
+      // Orders are created by authenticated users (server validates slot + cook)
+      allow create: if isSignedIn();
+      // Updates blocked from client — must go through Cloud Functions
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ─── Ratings ─────────────────────────────────────────────────────────────
+    match /ratings/{ratingId} {
+      // Cook can read their own ratings; user can read ratings they wrote
+      allow read: if isSignedIn() && (
+        resource.data.user_id == request.auth.uid ||
+        resource.data.cook_id == request.auth.uid
+      );
+      // Creation and update handled by Cloud Functions only
+      allow create: if false;
+      allow update: if false;
+    }
+
+    // ─── Festivals ────────────────────────────────────────────────────────────
+    match /festivals/{festivalId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Server only
+    }
+
+    match /cook_festival_responses/{responseId} {
+      allow read: if isSignedIn() && resource.data.cook_id == request.auth.uid;
+      allow write: if false; // Server only
+    }
+
+    // ─── Voice Messages ───────────────────────────────────────────────────────
+    match /voice_messages/{msgId} {
+      // Only sender or receiver can access
+      allow read: if isSignedIn() && (
+        resource.data.sender_id == request.auth.uid ||
+        resource.data.receiver_id == request.auth.uid
+      );
+      allow write: if false; // Server only
+    }
+
+    // ─── Notification Log ─────────────────────────────────────────────────────
+    match /notification_log/{logId} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // ─── SMS Log ──────────────────────────────────────────────────────────────
+    match /sms_log/{logId} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}

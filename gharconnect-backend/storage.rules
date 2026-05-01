@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── Cook kitchen images ───────────────────────────────────────────────────
+    // Read: any authenticated user (shown on cook cards)
+    // Write: Cloud Functions only (via Admin SDK)
+    match /cook_images/{cookId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if false; // Admin SDK only
+    }
+
+    // ─── Voice messages ───────────────────────────────────────────────────────
+    // Read/Write: Cloud Functions only (access via signed URL)
+    match /voice_messages/{orderId}/{fileName} {
+      allow read: if false;  // Access via signed URL from Cloud Function
+      allow write: if false; // Admin SDK only
+    }
+
+    // ─── Deny all other paths ─────────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

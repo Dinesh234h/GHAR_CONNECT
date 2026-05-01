@@ -1,0 +1,136 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "cook_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "home_location.geohash", "order": "ASCENDING" },
+        { "fieldPath": "is_active", "order": "ASCENDING" },
+        { "fieldPath": "availability_status", "order": "ASCENDING" },
+        { "fieldPath": "has_available_slots", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "time_slots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cook_id", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" },
+        { "fieldPath": "is_available", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "time_slots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cook_id", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "meals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cook_id", "order": "ASCENDING" },
+        { "fieldPath": "is_active", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cook_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cook_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "ttl_expires_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cook_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ratings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cook_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ratings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locked", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "voice_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "order_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "festivals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cook_festival_responses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cook_id", "order": "ASCENDING" },
+        { "fieldPath": "festival_id", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cook_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "availability_status", "order": "ASCENDING" },
+        { "fieldPath": "is_active", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cook_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "availability_status", "order": "ASCENDING" },
+        { "fieldPath": "unavailable_until", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sms_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cook_id", "order": "ASCENDING" },
+        { "fieldPath": "sent_at", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

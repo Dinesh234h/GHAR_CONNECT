@@ -1,0 +1,11 @@
+{
+  "name": "gharconnect-backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd functions && npm run build",
+    "deploy": "firebase deploy --only functions",
+    "emulate": "firebase emulators:start",
+    "lint": "cd functions && npm run lint"
+  }
+}
