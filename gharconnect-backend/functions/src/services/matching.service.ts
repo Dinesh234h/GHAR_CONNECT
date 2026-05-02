@@ -7,7 +7,7 @@ import { COLLECTIONS } from '../config/collections';
 import { CONSTANTS } from '../config/constants';
 import { getSearchCells } from '../utils/geohash.utils';
 import { haversineMeters } from '../utils/haversine.utils';
-import { getWalkingDistances, reverseGeocode, buildStaticMapUrl } from './geocoding.service';
+import { getWalkingDistances, reverseGeocode } from './geocoding.service';
 import { CookProfile, CookCardResult } from '../types/cook.types';
 import { UserPreferences } from '../types/user.types';
 import { MealSummary } from '../types/meal.types';
@@ -60,20 +60,13 @@ export async function getNearbyCooks(input: MatchInput): Promise<CookCardResult[
 
   if (filtered.length === 0) return [];
 
-  // ── Step 3: Batch walking distance from Google Distance Matrix ────────────
+  // ── Step 3: Local walking distance calculation ───────────────────────────
   const destinations = filtered.map((c) => ({
     lat: c.home_location.approx_lat,
     lng: c.home_location.approx_lng,
   }));
 
-  // Batch in chunks of GOOGLE_MAPS_DISTANCE_BATCH_MAX (25)
-  const chunkSize = CONSTANTS.GOOGLE_MAPS_DISTANCE_BATCH_MAX;
-  const walkingResults: { distanceText: string; durationText: string; distanceM: number }[] = [];
-  for (let i = 0; i < destinations.length; i += chunkSize) {
-    const chunk = destinations.slice(i, i + chunkSize);
-    const res = await getWalkingDistances({ lat: userLat, lng: userLng }, chunk);
-    walkingResults.push(...res);
-  }
+  const walkingResults = await getWalkingDistances({ lat: userLat, lng: userLng }, destinations);
 
   // ── Step 4: Fetch meals + slots for each cook ─────────────────────────────
   const cookIds = filtered.map((c) => c.cook_id);
@@ -274,9 +267,3 @@ export async function getAlternativeCooks(
   const all = await getNearbyCooks({ userLat, userLng, preferences, region });
   return all.filter((c) => c.cook_id !== excludeCookId).slice(0, 3);
 }
-
-/**
- * Get static map URL for a cook's pickup location.
- * Used in order confirmation response.
- */
-export { buildStaticMapUrl };

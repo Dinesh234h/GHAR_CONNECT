@@ -14,7 +14,6 @@ import { CONSTANTS } from '../../config/constants';
 import { reserveSlot } from '../../services/capacity.service';
 import { sendOrderRequestToCook } from '../../services/notification.service';
 import { scheduleOrderTimeout, scheduleSMSFallback } from '../../services/cloudTasks.service';
-import { buildStaticMapUrl } from '../../services/geocoding.service';
 import { Order } from '../../types/order.types';
 import { CookProfile } from '../../types/cook.types';
 
@@ -74,10 +73,6 @@ placeOrderRouter.post('/place', requireAuth, validateBody(PlaceOrderSchema), asy
     const ttlExpiresAt = new Date(now.getTime() + CONSTANTS.ORDER_TTL_SECONDS * 1000);
     const smsFiresAt = new Date(now.getTime() + CONSTANTS.SMS_FALLBACK_DELAY_SECONDS * 1000);
 
-    const mapPreviewUrl = buildStaticMapUrl(
-      cook.home_location.approx_lat,
-      cook.home_location.approx_lng
-    );
 
     const order: Order = {
       order_id: orderId,
@@ -96,7 +91,6 @@ placeOrderRouter.post('/place', requireAuth, validateBody(PlaceOrderSchema), asy
       meal_name: meal['name'] as string,
       slot_display_time: slot['slot_display_time'] as string,
       pickup_slot_start_time: `${slot['date']}T${slot['start_time']}:00+05:30`,
-      map_preview_url: mapPreviewUrl,
     };
 
     await db.collection(COLLECTIONS.ORDERS).doc(orderId).set(order);
@@ -124,7 +118,6 @@ placeOrderRouter.post('/place', requireAuth, validateBody(PlaceOrderSchema), asy
       order_id: orderId,
       status: 'pending',
       ttl_expires_at: ttlExpiresAt.toISOString(),
-      map_preview_url: mapPreviewUrl,
     });
   } catch (err) {
     handleError(err, res);

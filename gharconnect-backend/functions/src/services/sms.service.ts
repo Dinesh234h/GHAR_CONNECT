@@ -9,13 +9,23 @@ import { CONSTANTS } from '../config/constants';
 function getClient(): ReturnType<typeof twilio> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token) throw new Error('Twilio credentials not configured');
-  return twilio(sid, token);
+  
+  if (!sid || sid === 'AC_YOUR_SID_HERE' || !token || token === 'YOUR_AUTH_TOKEN_HERE') {
+    throw new Error('Twilio credentials missing or using placeholders. Please update .env.');
+  }
+  
+  try {
+    return twilio(sid, token);
+  } catch (err: any) {
+    throw new Error(`Failed to initialize Twilio client: ${err.message}`);
+  }
 }
 
 function fromNumber(): string {
   const num = process.env.TWILIO_FROM_NUMBER;
-  if (!num) throw new Error('TWILIO_FROM_NUMBER not configured');
+  if (!num || num === '+1415XXXXXXX') {
+    throw new Error('TWILIO_FROM_NUMBER missing or placeholder. Please update .env.');
+  }
   return num;
 }
 

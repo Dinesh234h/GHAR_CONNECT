@@ -193,12 +193,10 @@ festivalsRouter.post(
 );
 
 // ─── GET /festivals/upcoming ──────────────────────────────────────────────────
-import { detectRegionFromIP, getClientIP } from '../../services/region.service';
 
 festivalsRouter.get('/upcoming', requireAuth, async (req: Request, res: Response) => {
   try {
-    const ip = getClientIP(req);
-    const region = await detectRegionFromIP(ip);
+    const region = 'KA'; // Default for MVP after removing ipapi.co
     const today = new Date().toISOString().split('T')[0];
     const in7Days = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
 

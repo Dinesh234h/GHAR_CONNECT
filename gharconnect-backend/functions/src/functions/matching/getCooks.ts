@@ -4,7 +4,6 @@
 
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../../middleware/auth.middleware';
-import { buildStaticMapUrl } from '../../services/geocoding.service';
 import { db } from '../../config/firebase';
 import { COLLECTIONS } from '../../config/collections';
 import { handleError, AppError } from '../../utils/error.utils';
@@ -69,11 +68,6 @@ cooksRouter.get('/:cookId', requireAuth, async (req: Request, res: Response) => 
       .limit(10)
       .get();
 
-    // Static map for cook's approximate location
-    const mapUrl = buildStaticMapUrl(
-      cook.home_location.approx_lat,
-      cook.home_location.approx_lng
-    );
 
     // Never expose exact location
     const { home_location: hl, ...safeProfile } = cook;
@@ -88,7 +82,6 @@ cooksRouter.get('/:cookId', requireAuth, async (req: Request, res: Response) => 
       meals: mealsSnap.docs.map((d) => d.data()),
       slots: slotsSnap.docs.map((d) => d.data()),
       recent_ratings: ratingsSnap.docs.map((d) => d.data()),
-      map_url: mapUrl,
     });
   } catch (err) {
     handleError(err, res);

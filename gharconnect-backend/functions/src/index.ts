@@ -27,6 +27,8 @@ import { mealsRouter, slotsRouter } from './functions/meals/createMeal';
 import { aiRouter } from './functions/ai/getDishSuggestions';
 import { festivalsRouter } from './functions/festivals/festivalCron';
 import { commsRouter } from './functions/comms/sendVoiceMessage';
+import { agoraRouter } from './functions/agora/agoraRouter';
+import { geocodeRouter } from './functions/geocode/geocodeRouter';
 
 // ─── Public routes (none — all require auth) ──────────────────────────────────
 
@@ -45,6 +47,8 @@ app.use('/slots', slotsRouter);
 app.use('/ai', aiRouter);
 app.use('/festivals', festivalsRouter);
 app.use('/comms', commsRouter);
+app.use('/agora', agoraRouter);
+app.use('/api', geocodeRouter);
 
 // ─── Internal routes (Cloud Tasks targets) ────────────────────────────────────
 app.use('/internal', orderTimeoutRouter);

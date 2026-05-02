@@ -67,13 +67,7 @@ export const CONSTANTS = {
   MEAL_PRICE_MIN_INR: 40,
   MEAL_PRICE_MAX_INR: 200,
 
-  // ─── Google Maps API ──────────────────────────────────────────
-  GOOGLE_MAPS_DISTANCE_BATCH_MAX: 25,   // max destinations per call
-  GOOGLE_MAPS_BASE_URL: 'https://maps.googleapis.com/maps/api',
-  GOOGLE_STATIC_MAP_SIZE: '400x200',
-  GOOGLE_STATIC_MAP_ZOOM: 15,
-
   // ─── External API placeholders ───────────────────────────────
-  EXCHANGE_RATE_PLACEHOLDER: true,      // Post-MVP: Razorpay / currency
+  EXCHANGE_RATE_PLACEHOLDER: true,      // Post-MVP: currency logic
 
 } as const;

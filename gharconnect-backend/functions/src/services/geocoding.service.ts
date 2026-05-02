@@ -1,146 +1,95 @@
 // services/geocoding.service.ts
-// Google Maps Platform integrations:
-// - Geocoding API (address → lat/lng)
-// - Reverse Geocoding API (lat/lng → neighbourhood name)
-// - Distance Matrix API (batch walking times)
-// - Static Maps API (pickup location image URL)
+// Replaced Google Maps with OpenStreetMap (Nominatim) and local distance calculation.
 
-import { CONSTANTS } from '../config/constants';
+import { getCoordinates } from '../utils/geocode';
 import { AppError } from '../utils/error.utils';
-import {
-  GoogleGeocodingResponse,
-  GoogleDistanceMatrixResponse,
-} from '../types/api.types';
 
-const BASE = CONSTANTS.GOOGLE_MAPS_BASE_URL;
-
-function mapsKey(): string {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) throw new AppError('MISSING_CONFIG', 'GOOGLE_MAPS_API_KEY not set', 500);
-  return key;
-}
-
-// ─── 1A. Geocoding ────────────────────────────────────────────────────────────
 /**
  * Convert a typed address string to lat/lng coordinates.
- * Used in cook onboarding when cook types address instead of GPS.
  */
 export async function geocodeAddress(
   address: string
 ): Promise<{ lat: number; lng: number }> {
-  const url =
-    `${BASE}/geocode/json` +
-    `?address=${encodeURIComponent(address)}` +
-    `&key=${mapsKey()}` +
-    `&region=IN`;
-
-  const res = await fetch(url);
-  const data = (await res.json()) as GoogleGeocodingResponse;
-
-  if (data.status !== 'OK' || !data.results.length) {
-    throw new AppError('GEOCODE_FAILED', `Could not locate address: ${data.status}`, 400);
+  try {
+    const coords = await getCoordinates(address);
+    return { lat: coords.lat, lng: coords.lng };
+  } catch (err: any) {
+    throw new AppError('GEOCODE_FAILED', `Could not locate address: ${err.message}`, 400);
   }
-
-  return data.results[0].geometry.location; // { lat, lng }
 }
 
-// ─── 1B. Reverse Geocoding ───────────────────────────────────────────────────
 /**
  * Convert lat/lng to a human-readable neighbourhood name.
- * Shown on cook cards: "Indiranagar, Bengaluru"
+ * Uses Nominatim reverse geocoding.
  */
 export async function reverseGeocode(
   lat: number,
   lng: number
 ): Promise<string> {
   try {
-    const url =
-      `${BASE}/geocode/json` +
-      `?latlng=${lat},${lng}` +
-      `&key=${mapsKey()}` +
-      `&result_type=sublocality|locality` +
-      `&language=en`;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+    
+    const res = await fetch(url, {
+      headers: { "User-Agent": "GharConnectApp/1.0 (contact@gharconnect.demo)" }
+    });
+    const data = await res.json() as any;
 
-    const res = await fetch(url);
-    const data = (await res.json()) as GoogleGeocodingResponse;
+    if (!data || !data.address) return 'Nearby';
 
-    if (data.status !== 'OK' || !data.results.length) return 'Nearby';
-
-    // Extract sublocality or locality from address_components
-    const result = data.results[0];
-    const sublocality = result.address_components.find((c) =>
-      c.types.includes('sublocality_level_1')
-    );
-    const locality = result.address_components.find((c) =>
-      c.types.includes('locality')
-    );
-
-    const area = sublocality?.long_name ?? locality?.long_name ?? 'Nearby';
-    const city = locality?.long_name ?? '';
-    return sublocality ? `${area}, ${city}` : area;
+    // Try to find sublocality, suburb, or neighborhood
+    const area = data.address.suburb || data.address.neighbourhood || data.address.residential || data.address.city_district || 'Nearby';
+    const city = data.address.city || data.address.town || '';
+    
+    return city ? `${area}, ${city}` : area;
   } catch {
-    return 'Nearby'; // graceful fallback — never fail cook listing for this
+    return 'Nearby';
   }
 }
 
-// ─── 1C. Distance Matrix (batch walking times) ───────────────────────────────
 /**
- * Get walking distance and time from one origin to multiple destinations.
- * Batched at GOOGLE_MAPS_DISTANCE_BATCH_MAX destinations per call.
+ * Local distance calculation (Haversine) as a free alternative to Google Distance Matrix.
  */
 export async function getWalkingDistances(
   origin: { lat: number; lng: number },
   destinations: { lat: number; lng: number }[]
 ): Promise<{ distanceText: string; durationText: string; distanceM: number }[]> {
-  if (destinations.length === 0) return [];
+  const R = 6371e3; // Earth radius in meters
+  const WALKING_SPEED_MPS = 1.39; // 5 km/h in m/s
 
-  try {
-    const destStr = destinations.map((d) => `${d.lat},${d.lng}`).join('|');
-    const url =
-      `${BASE}/distancematrix/json` +
-      `?origins=${origin.lat},${origin.lng}` +
-      `&destinations=${encodeURIComponent(destStr)}` +
-      `&mode=walking` +
-      `&key=${mapsKey()}`;
+  return destinations.map((dest) => {
+    const φ1 = (origin.lat * Math.PI) / 180;
+    const φ2 = (dest.lat * Math.PI) / 180;
+    const Δφ = ((dest.lat - origin.lat) * Math.PI) / 180;
+    const Δλ = ((dest.lng - origin.lng) * Math.PI) / 180;
 
-    const res = await fetch(url);
-    const data = (await res.json()) as GoogleDistanceMatrixResponse;
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    if (data.status !== 'OK') {
-      throw new Error(`Distance Matrix status: ${data.status}`);
-    }
+    const distanceM = Math.round(R * c);
+    const durationSec = Math.round(distanceM / WALKING_SPEED_MPS);
 
-    return data.rows[0].elements.map((el) => ({
-      distanceText: el.distance?.text ?? 'Unknown',
-      durationText: el.duration?.text ?? 'Unknown',
-      distanceM: el.distance?.value ?? 999999,
-    }));
-  } catch (err) {
-    console.error('Distance Matrix API error:', err);
-    // Fallback: return placeholder strings for all destinations
-    return destinations.map(() => ({
-      distanceText: 'N/A',
-      durationText: 'N/A',
-      distanceM: 999999,
-    }));
-  }
+    const distText = distanceM < 1000 ? `${distanceM}m` : `${(distanceM / 1000).toFixed(1)}km`;
+    const durText = `${Math.round(durationSec / 60)} mins`;
+
+    return {
+      distanceText: distText,
+      durationText: durText,
+      distanceM,
+    };
+  });
 }
 
-// ─── 1D. Static Maps URL ─────────────────────────────────────────────────────
 /**
- * Build a Google Static Maps URL showing the cook's approximate pickup location.
- * Returned in POST /orders/place response — Flutter renders as an image widget.
+ * Static Maps URL - Removed Google dependency.
+ * Returns empty string or a placeholder if no free static map provider is configured.
  */
 export function buildStaticMapUrl(
-  approxLat: number,
-  approxLng: number
+  _approxLat: number,
+  _approxLng: number
 ): string {
-  const params = new URLSearchParams({
-    center: `${approxLat},${approxLng}`,
-    zoom: String(CONSTANTS.GOOGLE_STATIC_MAP_ZOOM),
-    size: CONSTANTS.GOOGLE_STATIC_MAP_SIZE,
-    markers: `color:orange|${approxLat},${approxLng}`,
-    key: process.env.GOOGLE_MAPS_API_KEY ?? '',
-  });
-  return `${BASE}/staticmap?${params.toString()}`;
+  // Post-Google cleanup: returning empty string. 
+  // Frontend should handle missing map preview gracefully.
+  return '';
 }

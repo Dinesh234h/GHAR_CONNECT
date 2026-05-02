@@ -1,147 +1,112 @@
 // services/cloudTasks.service.ts
-// Google Cloud Tasks — precise TTL scheduling for order timeouts and SMS fallbacks.
+// Simulation of Google Cloud Tasks using local setTimeout for no-billing development.
 
-import { CloudTasksClient } from '@google-cloud/tasks';
 import { CONSTANTS } from '../config/constants';
 
-const tasksClient = new CloudTasksClient();
-
-function queuePath(): string {
-  const project = process.env.GCP_PROJECT_ID;
-  const location = process.env.CLOUD_TASKS_LOCATION ?? 'asia-south1';
-  const queue = process.env.CLOUD_TASKS_QUEUE_NAME ?? 'gharconnect-tasks';
-  if (!project) throw new Error('GCP_PROJECT_ID not set');
-  return tasksClient.queuePath(project, location, queue);
-}
-
-function baseUrl(): string {
-  return process.env.CLOUD_FUNCTIONS_BASE_URL ?? '';
-}
-
-function internalHeaders(): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    'X-Internal-Secret': process.env.INTERNAL_SECRET ?? '',
-  };
-}
-
-// ─── Order Timeout Task ───────────────────────────────────────────────────────
 /**
- * Schedule a task to fire at exact TTL expiry.
- * Returns task name — store on order document for cancellation.
+ * LocalTaskScheduler — In-memory map to track active timeouts for cancellation.
+ * Only suitable for local development/demo.
  */
-export async function scheduleOrderTimeout(
-  orderId: string,
-  executeAt: Date
-): Promise<string> {
-  const payload = JSON.stringify({ order_id: orderId, type: 'ORDER_TIMEOUT' });
+class LocalTaskScheduler {
+  private activeTimeouts = new Map<string, NodeJS.Timeout>();
 
-  const [task] = await tasksClient.createTask({
-    parent: queuePath(),
-    task: {
-      scheduleTime: { seconds: Math.floor(executeAt.getTime() / 1000) },
-      httpRequest: {
-        httpMethod: 'POST',
-        url: `${baseUrl()}/internal/order-timeout`,
-        headers: internalHeaders(),
-        body: Buffer.from(payload).toString('base64'),
-      },
-    },
-  });
+  async schedule(taskId: string, executeAt: Date, path: string, payload: any): Promise<string> {
+    const delay = executeAt.getTime() - Date.now();
+    
+    // Clear existing if any
+    this.cancel(taskId);
 
-  return task.name ?? '';
-}
+    console.info(`[LocalScheduler] Task ${taskId} scheduled for ${executeAt.toISOString()} (in ${Math.round(delay/1000)}s)`);
 
-// ─── Cancel Task (Cook responds before TTL) ───────────────────────────────────
-export async function cancelTask(taskName: string): Promise<void> {
-  if (!taskName) return;
-  try {
-    await tasksClient.deleteTask({ name: taskName });
-  } catch (err: unknown) {
-    const code = (err as { code?: number }).code;
-    if (code !== 5) throw err; // 5 = NOT_FOUND means task already fired — safe to ignore
+    const timeout = setTimeout(async () => {
+      this.activeTimeouts.delete(taskId);
+      await this.triggerInternalRoute(path, payload);
+    }, Math.max(0, delay));
+
+    this.activeTimeouts.set(taskId, timeout);
+    return taskId;
+  }
+
+  cancel(taskId: string): void {
+    const timeout = this.activeTimeouts.get(taskId);
+    if (timeout) {
+      console.info(`[LocalScheduler] Task ${taskId} cancelled.`);
+      clearTimeout(timeout);
+      this.activeTimeouts.delete(taskId);
+    }
+  }
+
+  private async triggerInternalRoute(path: string, payload: any) {
+    const baseUrl = process.env.CLOUD_FUNCTIONS_BASE_URL || 'http://localhost:5001/gharconnect-5cf25/asia-south1/api';
+    const secret = process.env.INTERNAL_SECRET || '';
+    
+    try {
+      console.info(`[LocalScheduler] Executing ${path} at ${new Date().toISOString()}`);
+      const res = await fetch(`${baseUrl}${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Secret': secret
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json().catch(() => ({}));
+      console.info(`[LocalScheduler] ${path} response: ${res.status}`, data);
+    } catch (err) {
+      console.error(`[LocalScheduler] Failed to trigger ${path}:`, err);
+    }
   }
 }
 
-// ─── SMS Fallback Task ────────────────────────────────────────────────────────
-/**
- * Schedule SMS fallback at T+60s in case FCM push wasn't opened.
- */
+const scheduler = new LocalTaskScheduler();
+
+export async function scheduleOrderTimeout(orderId: string, executeAt: Date): Promise<string> {
+  return scheduler.schedule(
+    `timeout_${orderId}`,
+    executeAt,
+    '/internal/order-timeout',
+    { order_id: orderId, type: 'ORDER_TIMEOUT' }
+  );
+}
+
+export async function cancelTask(taskId: string): Promise<void> {
+  scheduler.cancel(taskId);
+}
+
 export async function scheduleSMSFallback(
   orderId: string,
   cookPhone: string,
   executeAt: Date
 ): Promise<string> {
-  const payload = JSON.stringify({
-    order_id: orderId,
-    cook_phone: cookPhone,
-    type: 'SMS_FALLBACK',
-  });
-
-  const [task] = await tasksClient.createTask({
-    parent: queuePath(),
-    task: {
-      scheduleTime: { seconds: Math.floor(executeAt.getTime() / 1000) },
-      httpRequest: {
-        httpMethod: 'POST',
-        url: `${baseUrl()}/internal/sms-fallback`,
-        headers: internalHeaders(),
-        body: Buffer.from(payload).toString('base64'),
-      },
-    },
-  });
-
-  return task.name ?? '';
+  return scheduler.schedule(
+    `sms_${orderId}`,
+    executeAt,
+    '/internal/sms-fallback',
+    { order_id: orderId, cook_phone: cookPhone, type: 'SMS_FALLBACK' }
+  );
 }
 
-// ─── Pickup Reminder Task ─────────────────────────────────────────────────────
-export async function schedulePickupReminder(
-  orderId: string,
-  pickupTime: Date
-): Promise<string> {
+export async function schedulePickupReminder(orderId: string, pickupTime: Date): Promise<string> {
   const reminderTime = new Date(
     pickupTime.getTime() - CONSTANTS.PICKUP_REMINDER_MINUTES_BEFORE * 60 * 1000
   );
-  const payload = JSON.stringify({ order_id: orderId, type: 'PICKUP_REMINDER' });
-
-  const [task] = await tasksClient.createTask({
-    parent: queuePath(),
-    task: {
-      scheduleTime: { seconds: Math.floor(reminderTime.getTime() / 1000) },
-      httpRequest: {
-        httpMethod: 'POST',
-        url: `${baseUrl()}/internal/pickup-reminder`,
-        headers: internalHeaders(),
-        body: Buffer.from(payload).toString('base64'),
-      },
-    },
-  });
-
-  return task.name ?? '';
+  return scheduler.schedule(
+    `reminder_${orderId}`,
+    reminderTime,
+    '/internal/pickup-reminder',
+    { order_id: orderId, type: 'PICKUP_REMINDER' }
+  );
 }
 
-// ─── Rating Prompt Task ───────────────────────────────────────────────────────
-export async function scheduleRatingPrompt(
-  orderId: string,
-  completedAt: Date
-): Promise<string> {
+export async function scheduleRatingPrompt(orderId: string, completedAt: Date): Promise<string> {
   const promptTime = new Date(
     completedAt.getTime() + CONSTANTS.RATING_PROMPT_MINUTES_AFTER * 60 * 1000
   );
-  const payload = JSON.stringify({ order_id: orderId, type: 'RATING_PROMPT' });
-
-  const [task] = await tasksClient.createTask({
-    parent: queuePath(),
-    task: {
-      scheduleTime: { seconds: Math.floor(promptTime.getTime() / 1000) },
-      httpRequest: {
-        httpMethod: 'POST',
-        url: `${baseUrl()}/internal/rating-prompt`,
-        headers: internalHeaders(),
-        body: Buffer.from(payload).toString('base64'),
-      },
-    },
-  });
-
-  return task.name ?? '';
+  return scheduler.schedule(
+    `rating_${orderId}`,
+    promptTime,
+    '/internal/rating-prompt',
+    { order_id: orderId, type: 'RATING_PROMPT' }
+  );
 }
