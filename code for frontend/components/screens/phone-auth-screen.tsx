@@ -38,9 +38,15 @@ export function PhoneAuthScreen({ onBack, onVerified, userType }: PhoneAuthScree
 
   const handleVerify = () => {
     if (otp.length === 6) {
+      // Map seeded phone numbers to seeded UIDs
+      let uid = `uid_${phone}`
+      if (phone === "9876543210") uid = "test-user-001"
+      if (phone === "9876543211") uid = "test-cook-001"
+      if (phone === "9876543212") uid = "test-cook-002"
+
       // Mock login — any phone + any 6-digit OTP works
       const authUser: AuthUser = {
-        uid: `uid_${phone}`,
+        uid,
         phone,
         roles: [userType] as UserRole[],
       }

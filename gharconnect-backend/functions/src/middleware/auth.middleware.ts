@@ -33,6 +33,22 @@ export async function requireAuth(
     return;
   }
 
+  if (token.startsWith('mock_token_')) {
+    const phone = token.replace('mock_token_', '');
+    let uid = `uid_${phone}`;
+    
+    // Map seeded phone numbers to seeded UIDs
+    if (phone === '9876543210') uid = 'test-user-001';
+    if (phone === '9876543211') uid = 'test-cook-001';
+    if (phone === '9876543212') uid = 'test-cook-002';
+
+    req.uid = uid;
+    req.phone = phone;
+    req.roles = ['user', 'cook']; // Give all roles in mock
+    next();
+    return;
+  }
+
   try {
     const decoded = await auth.verifyIdToken(token);
     req.uid = decoded.uid;

@@ -22,11 +22,29 @@ cooksRouter.get('/nearby', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'lat and lng required' });
     }
 
-    return res.json({
-      message: 'Nearby cooks API working 🚀',
-      lat,
-      lng
+    // For now, return all active cooks (no complex geohash filtering yet for local dev)
+    const cooksSnap = await db
+      .collection(COLLECTIONS.COOK_PROFILES)
+      .where('is_active', '==', true)
+      .limit(20)
+      .get();
+
+    const cooks = cooksSnap.docs.map(doc => {
+      const data = doc.data();
+      const { home_location, ...safeProfile } = data;
+      return {
+        ...safeProfile,
+        distance_km: 2.5, // Mock distance
+        next_available_slot: "Today, 1:00 PM", // Mock next slot
+        approx_location: {
+          lat: home_location?.approx_lat,
+          lng: home_location?.approx_lng,
+          neighbourhood: home_location?.neighbourhood
+        }
+      };
     });
+
+    return res.json({ cooks, total: cooks.length });
 
   } catch (err) {
     return res.status(500).json({ error: 'Internal error' });
