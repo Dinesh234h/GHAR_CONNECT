@@ -1,13 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { MobileLayout } from "@/components/mobile-layout"
 import { BottomNav } from "@/components/bottom-nav"
+import { useAuth } from "@/context/AuthContext"
 import { SplashScreen } from "@/components/screens/splash-screen"
 import { PhoneAuthScreen } from "@/components/screens/phone-auth-screen"
 import { CookOnboardingScreen } from "@/components/screens/cook-onboarding-screen"
 import { UserOnboardingScreen } from "@/components/screens/user-onboarding-screen"
 import { UserHomeScreen } from "@/components/screens/user-home-screen"
+import { SubscriptionScreen } from "@/components/screens/subscription-screen"
 import { CookProfileScreen } from "@/components/screens/cook-profile-screen"
 import { OrderPlacementScreen } from "@/components/screens/order-placement-screen"
 import { OrderWaitingScreen } from "@/components/screens/order-waiting-screen"
@@ -54,13 +56,34 @@ type Screen =
 type UserType = "user" | "cook"
 
 export default function GharConnectApp() {
+  const { user, logout: authLogout, loading: authLoading } = useAuth()
   const [screen, setScreen] = useState<Screen>("splash")
   const [userType, setUserType] = useState<UserType>("user")
   const [activeTab, setActiveTab] = useState("home")
   const [selectedCookId, setSelectedCookId] = useState<string | null>(null)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null)
+  const [selectedMealId, setSelectedMealId] = useState<string | null>(null)
   const [showFilterSheet, setShowFilterSheet] = useState(false)
-  const [currentLocation, setCurrentLocation] = useState("Indiranagar")
+  const [currentLocation, setCurrentLocation] = useState("Near You")
+
+  // Auto-navigate based on auth state after hydration
+  useEffect(() => {
+    if (authLoading) return
+    if (user) {
+      const role = user.roles.includes("cook") ? "cook" : "user"
+      setUserType(role)
+      if (role === "cook") {
+        setScreen("cook-dashboard")
+        setActiveTab("dashboard")
+      } else {
+        setScreen("user-home")
+        setActiveTab("home")
+      }
+    } else {
+      setScreen("splash")
+    }
+  }, [user, authLoading])
 
   const handleUserSelect = () => {
     setUserType("user")
@@ -95,7 +118,9 @@ export default function GharConnectApp() {
     setScreen("cook-profile")
   }
 
-  const handleOrder = () => {
+  const handleOrder = (slotId: string, mealId: string) => {
+    setSelectedSlotId(slotId)
+    setSelectedMealId(mealId)
     setScreen("order-placement")
   }
 
@@ -146,6 +171,7 @@ export default function GharConnectApp() {
   }
 
   const handleLogout = () => {
+    authLogout()
     setScreen("splash")
     setUserType("user")
     setActiveTab("home")
@@ -213,18 +239,27 @@ export default function GharConnectApp() {
       case "cook-profile":
         return (
           <CookProfileScreen
-            cookId={selectedCookId || "1"}
+            cookId={selectedCookId || ""}
             onBack={() => setScreen("user-home")}
-            onOrder={handleOrder}
+            onOrder={(slotId, mealId) => {
+              setSelectedSlotId(slotId)
+              setSelectedMealId(mealId)
+              setScreen("order-placement")
+            }}
           />
         )
 
       case "order-placement":
         return (
           <OrderPlacementScreen
-            cookId={selectedCookId || "1"}
+            cookId={selectedCookId || ""}
+            slotId={selectedSlotId || ""}
+            mealId={selectedMealId || ""}
             onBack={() => setScreen("cook-profile")}
-            onPlaceOrder={handlePlaceOrder}
+            onPlaceOrder={(orderId) => {
+              setSelectedOrderId(orderId)
+              handlePlaceOrder()
+            }}
           />
         )
 
@@ -271,12 +306,7 @@ export default function GharConnectApp() {
         )
 
       case "subscription":
-        return (
-          <div className="flex flex-col items-center justify-center h-full bg-background px-4">
-            <h1 className="text-2xl font-bold text-foreground">Subscriptions</h1>
-            <p className="text-muted-foreground text-center mt-2">Manage your weekly and monthly meal plans here.</p>
-          </div>
-        )
+        return <SubscriptionScreen />
 
       case "rating":
         return (

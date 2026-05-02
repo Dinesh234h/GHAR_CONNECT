@@ -23,6 +23,7 @@ import { placeOrderRouter } from './functions/orders/placeOrder';
 import { respondToOrderRouter } from './functions/orders/respondToOrder';
 import { completeOrderRouter } from './functions/orders/completeOrder';
 import { cancelOrderRouter } from './functions/orders/cancelOrder';
+import { getUserOrdersRouter } from './functions/orders/getUserOrders';
 import { orderTimeoutRouter } from './functions/internal/orderTimeout';
 import { smsFallbackRouter, pickupReminderRouter, ratingPromptRouter } from './functions/internal/smsFallback';
 import { ratingsRouter } from './functions/ratings/submitRating';
@@ -42,6 +43,7 @@ app.use('/auth', otpRouter);
 // ─── Protected routes ─────────────────────────────────────────────────────────
 app.use('/cooks', cooksRouter);
 app.use('/orders', placeOrderRouter);
+app.use('/orders', getUserOrdersRouter);  // GET /orders/user & GET /orders/:id (must be before respond/complete/cancel)
 app.use('/orders', respondToOrderRouter);
 app.use('/orders', completeOrderRouter);
 app.use('/orders', cancelOrderRouter);

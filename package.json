@@ -1,0 +1,18 @@
+{
+  "name": "gharconnect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GharConnect — Root workspace monorepo scripts",
+  "scripts": {
+    "dev:frontend": "cd \"code for frontend\" && pnpm dev",
+    "dev:backend": "cd gharconnect-backend && npm run emulate",
+    "dev:all": "concurrently --names \"FRONTEND,BACKEND\" --prefix-colors \"cyan,magenta\" \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "seed": "cd gharconnect-backend/functions && npm run seed",
+    "build:backend": "cd gharconnect-backend && npm run build",
+    "deploy:backend": "cd gharconnect-backend && npm run deploy",
+    "install:all": "cd \"code for frontend\" && pnpm install && cd ../gharconnect-backend/functions && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
