@@ -266,7 +266,8 @@ export default function GharConnectApp() {
       case "order-waiting":
         return (
           <OrderWaitingScreen
-            cookName="Lakshmi Devi"
+            orderId={selectedOrderId || ""}
+            cookName="Your Cook"
             onTimeout={() => setScreen("user-home")}
             onConfirmed={handleOrderConfirmed}
           />
