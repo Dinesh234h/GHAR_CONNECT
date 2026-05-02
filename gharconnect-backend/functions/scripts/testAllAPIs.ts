@@ -35,6 +35,22 @@ async function runAllTests() {
     results.push({ api: 'Twilio SMS', status: '✅ OK', note: `Account: ${account.friendlyName}` });
   } catch (e) { results.push({ api: 'Twilio SMS', status: '❌ ERROR', note: String(e) }); }
 
+  // 3.1 Twilio Verify (OTP)
+  try {
+    const { sendOTP } = await import('../src/services/otp.service');
+    // Just try to init the client via sendOTP call (it will throw if keys are placeholders)
+    // We use a dummy number that will likely fail with 403 on trial, which is fine for "connectivity" test
+    await sendOTP('1234567890');
+    results.push({ api: 'Twilio Verify', status: '✅ OK', note: 'Handshake successful' });
+  } catch (e: any) {
+    const isConnOk = e.message.includes('unverified') || e.message.includes('not found');
+    results.push({ 
+      api: 'Twilio Verify', 
+      status: isConnOk ? '✅ OK' : '❌ ERROR', 
+      note: isConnOk ? 'Connected (Trial)' : String(e) 
+    });
+  }
+
   // 4. Agora Token
   try {
     const { RtcTokenBuilder, RtcRole } = await import('agora-access-token');

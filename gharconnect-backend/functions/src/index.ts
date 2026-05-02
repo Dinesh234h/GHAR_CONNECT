@@ -5,6 +5,11 @@ import * as functions from 'firebase-functions';
 import express = require('express');
 import { Request, Response } from 'express';
 import cors = require('cors');
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load environment variables from ../.env (root of gharconnect-backend)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // ─── Express app ──────────────────────────────────────────────────────────────
 const app = express();
@@ -13,6 +18,7 @@ app.use(express.json());
 
 // ─── Route imports ────────────────────────────────────────────────────────────
 import { cooksRouter } from './functions/matching/getCooks';
+import { otpRouter } from './functions/auth/otpRouter';
 import { placeOrderRouter } from './functions/orders/placeOrder';
 import { respondToOrderRouter } from './functions/orders/respondToOrder';
 import { completeOrderRouter } from './functions/orders/completeOrder';
@@ -30,7 +36,8 @@ import { commsRouter } from './functions/comms/sendVoiceMessage';
 import { agoraRouter } from './functions/agora/agoraRouter';
 import { geocodeRouter } from './functions/geocode/geocodeRouter';
 
-// ─── Public routes (none — all require auth) ──────────────────────────────────
+// ─── Public routes (Auth) ────────────────────────────────────────────────────
+app.use('/auth', otpRouter);
 
 // ─── Protected routes ─────────────────────────────────────────────────────────
 app.use('/cooks', cooksRouter);
